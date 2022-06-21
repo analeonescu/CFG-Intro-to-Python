@@ -1,0 +1,163 @@
+import requests
+import random
+import webbrowser
+
+print('Hello, and welcome to my project!\nToday I am going to help you decide what to eat')
+print()
+'''
+1. we'll create a user profile that mentions which dietary requirements they have
+2. we will make some lists that keep track of the recipies/ingredients/uri's we are going through
+3. and we'll compute the caloric and sugar intake for each recipe we find
+4. we will display the recipies with the lowest caloric and sugar intake
+5. afterwards, we can ask the code to tell us a random recipe to use
+6. and it can also open the uri for us (if we want to)
+7. when the code finished running, you'll see the recipies saved up in a txt file
+enjoy!
+'''
+#first create a user profile
+name = input('First, what is your name?\n')
+
+#we'll need to check if the user is either vegan/vegetarian/pescatarian
+is_pescatarian = 'no'
+is_vegetarian = 'no'
+is_vegan = 'no'
+
+#we first want to see if they're vegan, as this is the most restrictive diet
+is_vegan = input('are you vegan, {}? yes/no\n'.format(name))
+if is_vegan == 'no':
+    is_vegetarian = input('are you vegetarian, {}? yes/no\n'.format(name))
+    if is_vegetarian == 'no':
+        is_pescatarian = input('are you pescatarian, then? yes/no\n')
+        if is_pescatarian == 'no':
+            print('Ok, you are making my job much easier :)')
+            is_something_else = 'yes'
+
+#now we want to quantify the user's dietary requirement (we'll need it when choosing a recipe)
+
+def lifestyle_choice():
+    if is_vegan == 'yes':
+        return 'Vegan'
+    elif is_vegetarian == 'yes':
+        return 'Vegetarian'
+    elif is_pescatarian == 'yes':
+        return 'Pescatarian'
+    elif is_something_else =='yes':
+        return 'something else'
+
+#function to find a recipe based on a base ingredient:
+def recipe_search(ingredient):
+    app_id = '2f14f3d0'
+    app_key = 'fe5c53899fe9621e10c1efdd8a1e8010'
+    result = requests.get('https://api.edamam.com/search?q={}&app_id={}&app_key={}'.format(ingredient, app_id,app_key))
+    data = result.json()
+    return data['hits']
+
+#we can check the type of information by running e.g.
+#print(recipe_search('milk'))
+
+#create lists of what we find - the full recipies which will be saved in a text file,
+#and a list of the names from which we will choose later
+
+recipe_list = []
+label_list = []
+uri_list = []
+sugar_list = []
+calories_list = []
+
+#create a function that runs through all the recipies that contain this ingredient and will make orderred lists of
+#the label, uri, sugar and caloric intake
+
+def run():
+    ingredient = input('What are you craving today?\n')
+    print('Here is what I found according to your dietary requirements:')
+    results = recipe_search(ingredient)
+    sugar_total = 100000 #assign these variables some random 'ceiling' numbers that we will compare our values with
+    calories_total = 1000000
+
+    def recipe_output(recipe):
+        print(recipe['label'])
+        print('This meal is {}'.format(lifestyle_choice()))
+        label_list.append(recipe['label'])
+        uri_list.append(recipe['uri'])
+        recipe_list.append(recipe['label'])
+        recipe_list.append('You can find the full recipe at:' + recipe['uri'])
+        print('you can find the recipe at {}'.format(recipe['uri']))
+        #print('the type of dish is {}'.format(recipe['dishType'][0])) this raises some errors
+        print('which belongs to the {} cuisine'.format(recipe['cuisineType'][0]))
+        if recipe['dietLabels']:
+            print('this dish is ' + str(recipe['dietLabels'][0]))
+        totalNutrients_dict = recipe['totalNutrients']
+        for nutrient in totalNutrients_dict:
+            print(str(totalNutrients_dict[nutrient]['label']) + ': ' + str(
+                totalNutrients_dict[nutrient]['quantity']) + ' ' + str(totalNutrients_dict[nutrient]['unit']))
+        for other_ingredients in recipe['ingredientLines']:
+            recipe_list.append(other_ingredients)
+        recipe_list.append('\n')
+
+    def calories(recipe):
+        quantity = float(recipe['totalWeight'])
+        caloric_amount = float(recipe['calories'])
+        caloric_amount_normalized = caloric_amount / quantity * 100
+        calories_list.append(caloric_amount_normalized)
+        return caloric_amount_normalized
+
+    def sugar(recipe):
+        quantity = float(recipe['totalWeight'])
+        totalNutrients_dict = recipe['totalNutrients']
+        sugar_amount_normalized = float(totalNutrients_dict["SUGAR"]['quantity']) / quantity * 100
+        sugar_list.append(sugar_amount_normalized)
+        return sugar_amount_normalized
+
+    for result in results:
+        recipe = result['recipe']
+        healthLabels_list = recipe['healthLabels']
+
+        if lifestyle_choice() in ['Vegan', 'Vegetarian', 'Pescatarian'] and (lifestyle_choice() in healthLabels_list):
+            recipe_output(recipe)
+            caloric_amount = calories(recipe)
+            sugar_amount = sugar(recipe)
+            print('this recipe contains {} calories per 100g'.format(caloric_amount))
+            print('this recipe contains {} g of sugar per 100g'.format(sugar_amount))
+            calories_total = min(caloric_amount, calories_total)
+            sugar_total = min(sugar_amount, sugar_total)
+            print()
+
+        elif lifestyle_choice() == 'something else':
+            recipe_output(recipe)
+            caloric_amount = calories(recipe)
+            sugar_amount = sugar(recipe)
+            print('this recipe contains {} calories per 100g'.format(caloric_amount))
+            print('this recipe contains {} g of sugar per 100g'.format(sugar_amount))
+            calories_total = min(caloric_amount, calories_total)
+            sugar_total = min(sugar_amount, sugar_total)
+            print()
+
+    if sugar_total != 100000 and len(sugar_list) == len(label_list): #apparently some ingredients have more than one recipe with the same name
+        print('The recipe lowest in sugar is {} with {} grams of sugar per 100g'.format(label_list[sugar_list.index(sugar_total)], sugar_total))
+        print('The recipe lowest in calories is {} with {} calories per 100g'.format(label_list[calories_list.index(calories_total)], calories_total))
+    elif sugar_total != 100000 and len(sugar_list)!=len(label_list):
+        print('There is an error with edamam and I cannot check accurate information about a dishes with the same name')
+    else:
+        print('We are sorry, no such recipies exist :(')
+
+#now writing the file:
+    with open('{} recipes.txt'.format(ingredient), 'w+') as text_thing:
+        for element in recipe_list:
+            text_thing.write(element + '\n')
+
+#option to choose a recipe at random
+def recipe_choice():
+    if label_list !=[]:
+        if input('\nwould you like me to choose a recipe for you to make? yes/no\n') == 'yes':
+            your_choice = str(random.choice(label_list))
+            position = label_list.index(your_choice)
+            your_choice_uri = uri_list[position]
+            print('\nToday you should eat ' + your_choice)
+            print(your_choice_uri)
+            if input('\nwould you like me to open it in the browser? yes/no\n')=='yes':
+                webbrowser.open(your_choice_uri)
+    print('\nHave a great day!')
+
+#relax and enjoy the functions
+run()
+recipe_choice()
