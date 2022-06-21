@@ -4,16 +4,7 @@ import webbrowser
 
 print('Hello, and welcome to my project!\nToday I am going to help you decide what to eat')
 print()
-'''
-1. we'll create a user profile that mentions which dietary requirements they have
-2. we will make some lists that keep track of the recipies/ingredients/uri's we are going through
-3. and we'll compute the caloric and sugar intake for each recipe we find
-4. we will display the recipies with the lowest caloric and sugar intake
-5. afterwards, we can ask the code to tell us a random recipe to use
-6. and it can also open the uri for us (if we want to)
-7. when the code finished running, you'll see the recipies saved up in a txt file
-enjoy!
-'''
+
 #first create a user profile
 name = input('First, what is your name?\n')
 
